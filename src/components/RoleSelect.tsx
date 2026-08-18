@@ -4,7 +4,7 @@ import { Role } from "../types/models";
 
 interface RoleSelectProps {
   baseRole: Role | null;
-  onRoleConfirmed: (role: Role) => void;
+  onRoleConfirmed: (role: Role) => void | Promise<void>;
 }
 
 function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
@@ -12,12 +12,21 @@ function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
   const [saving, setSaving] = useState(false);
   const [deniedMessage, setDeniedMessage] = useState("");
 
-  // true only the very first login ever
- // const isFirstTimeSetup = baseRole === null;
-
   const canSelect = (targetRole: Role) => {
+    //first time user onceoff option
+    if(baseRole === null){
+      return (
+        targetRole === Role.Worker ||
+        targetRole === Role.Manager
+      );
+    }
+
+    //SuperUser options
     if(baseRole === Role.SuperUser) {
-      return targetRole === Role.Worker || targetRole === Role.Manager;
+      return (
+        targetRole === Role.Worker || 
+        targetRole === Role.Manager
+      );
     }
 
     return targetRole === baseRole;
@@ -38,11 +47,15 @@ function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
   const confirmRole = async () => {
     if (!pendingRole) return;
 
-    setSaving(true)
+    setSaving(true);
 
-    onRoleConfirmed(pendingRole);
-
-    setPendingRole(null);
+    try{
+      await onRoleConfirmed(pendingRole);
+      setPendingRole(null);
+    } catch (error) {
+      console.error("Failed to confirm role:", error)
+    }
+    setSaving(false)
   };
 
   return (
@@ -70,6 +83,7 @@ function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
         <div className="space-y-4 mb-3">
           <button
             onClick={() => handleSelect(Role.Worker)}
+            disabled={!canSelect(Role.Worker || saving)}
             className={`w-full border rounded-2xl p-6 text-left transition ${
               canSelect(Role.Worker)
                 ? "bg-[#2c2d2e] border-gray-700 hover:border-[#ff9500] hover:scale-[1.02] cursor-pointer"
@@ -86,6 +100,7 @@ function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
         <div className="space-y-4">
           <button
             onClick={() => handleSelect(Role.Manager)}
+            disabled={!canSelect(Role.Manager) || saving}
             className={`w-full border rounded-2xl p-6 text-left transition ${
               canSelect(Role.Manager)
                 ? "bg-[#2c2d2e] border-gray-700 hover:border-[#ff9500] hover:scale-[1.02] cursor-pointer"
