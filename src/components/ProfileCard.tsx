@@ -50,7 +50,7 @@ function ProfileCard() {
         name: newName.trim()
       });
 
-      //keep the auth profile in sync too (used for sessions/task names)
+      //keep the auth profile in sync too, used for sessions/task names
       await updateProfile(user, {
         displayName: newName.trim()
       });

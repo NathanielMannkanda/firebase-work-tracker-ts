@@ -4,7 +4,7 @@ import './App.css'
 import { useEffect, useState } from 'react';
 import { useAuthState} from 'react-firebase-hooks/auth';
 import { auth, firestore } from './firebase/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
   BrowserRouter,
   Routes,
@@ -98,7 +98,21 @@ function App() {
     return (
       <RoleSelect
         baseRole={registeredRole}
-        onRoleConfirmed={(confirmedRole) => {
+        onRoleConfirmed={async (confirmedRole) => {
+          if (registeredRole === null){
+            const userRef = doc(
+              firestore,
+              "users",
+              user.uid
+            );
+
+            await updateDoc(userRef, {
+              role: confirmedRole
+            });
+            
+            setRegisteredRole(confirmedRole);
+          }
+
           setActiveRole(confirmedRole);
           setRoleConfirmed(true);
         }}
