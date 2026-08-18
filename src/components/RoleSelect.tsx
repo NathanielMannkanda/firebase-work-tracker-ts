@@ -1,69 +1,82 @@
 import { useState } from "react";
-import type { User } from "firebase/auth";
-import { firestore } from "../firebase/firebase";
-import { doc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Role } from "../types/models";
+import { Role } from "../types/models";
 
 interface RoleSelectProps {
-  user: User;
+  baseRole: Role | null;
   onRoleConfirmed: (role: Role) => void;
 }
 
-function RoleSelect({ user, onRoleConfirmed }: RoleSelectProps) {
-  //role awaiting confirmation in the modal
+function RoleSelect({ baseRole, onRoleConfirmed }: RoleSelectProps) {
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deniedMessage, setDeniedMessage] = useState("");
+
+  // true only the very first login ever
+ // const isFirstTimeSetup = baseRole === null;
+
+  const canSelect = (targetRole: Role) => {
+    if(baseRole === Role.SuperUser) {
+      return targetRole === Role.Worker || targetRole === Role.Manager;
+    }
+
+    return targetRole === baseRole;
+  };
+
+  const handleSelect = (targetRole: Role) => {
+    if (!canSelect(targetRole)) {
+      setDeniedMessage(
+        `You don't have permission to sign in as ${targetRole}. Your account is registered as ${baseRole}.`
+      );
+      setTimeout(() => setDeniedMessage(""), 3000);
+      return;
+    }
+    setDeniedMessage("");
+    setPendingRole(targetRole);
+  };
 
   const confirmRole = async () => {
     if (!pendingRole) return;
 
-    setSaving(true);
-    try{
-      //reference to user doc
-      const userRef = doc(firestore,"users", user.uid);
+    setSaving(true)
 
-      //saves data to firestore
-      await setDoc(userRef, {
-        role: pendingRole,
-        email: user.email,
-        name: user.displayName,
-        createdAt: new Date()
-      }, { merge: true });
+    onRoleConfirmed(pendingRole);
 
-      //update app state instantly
-      onRoleConfirmed(pendingRole);
-    }catch(error){
-      console.log(error)
-    }
-    setSaving(false);
     setPendingRole(null);
-  }
+  };
 
-  return(
+  return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-2xl bg-[#1c1c1e] border border-gray-800 rounded-3xl p-6 md:p-10 shadow-2xl text-center mb-10">
-        <h1 className="text-4xl font-bold text-white mb-2">
-          Work Tracker
-        </h1>
+        className="w-full max-w-2xl bg-[#1c1c1e] border border-gray-800 rounded-3xl p-6 md:p-10 shadow-2xl text-center mb-10"
+      >
+        <h1 className="text-4xl font-bold text-white mb-2">Work Tracker</h1>
+        <h2 className="text-gray-400 mb-2">Select your role</h2>
 
-        <h2 className="text-gray-400 mb-2">
-          Select your role
-        </h2>
+        {deniedMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-4 text-sm"
+          >
+            {deniedMessage}
+          </motion.div>
+        )}
 
         <div className="space-y-4 mb-3">
           <button
-            onClick={() => setPendingRole("worker")}
-            className="w-full bg-[#2c2d2e] border border-gray-700 rounded-2xl p-6 text-left hover:border-[#ff9500] hover:scale-[1.02] transition cursor-pointer"
+            onClick={() => handleSelect(Role.Worker)}
+            className={`w-full border rounded-2xl p-6 text-left transition ${
+              canSelect(Role.Worker)
+                ? "bg-[#2c2d2e] border-gray-700 hover:border-[#ff9500] hover:scale-[1.02] cursor-pointer"
+                : "bg-[#242425] border-gray-800 opacity-40 cursor-not-allowed"
+            }`}
           >
-            <h2 className="text-xl font-semibold text-white">
-              Worker
-            </h2>
-
+            <h2 className="text-xl font-semibold text-white">Worker</h2>
             <p className="text-gray-400 mt-2">
               Clock in, track work hours and complete assigned tasks
             </p>
@@ -72,21 +85,19 @@ function RoleSelect({ user, onRoleConfirmed }: RoleSelectProps) {
 
         <div className="space-y-4">
           <button
-            className="w-full bg-[#2c2d2e] border border-gray-700 rounded-2xl p-6 text-left hover:border-[#ff9500] hover:scale-[1.02] transition cursor-pointer"
-            onClick={() => setPendingRole("manager")}
+            onClick={() => handleSelect(Role.Manager)}
+            className={`w-full border rounded-2xl p-6 text-left transition ${
+              canSelect(Role.Manager)
+                ? "bg-[#2c2d2e] border-gray-700 hover:border-[#ff9500] hover:scale-[1.02] cursor-pointer"
+                : "bg-[#242425] border-gray-800 opacity-40 cursor-not-allowed"
+            }`}
           >
-            <h2
-              className="text-xl font-semibold text-white"
-            >
-              Manager
-            </h2>
-
+            <h2 className="text-xl font-semibold text-white">Manager</h2>
             <p className="text-gray-400 mt-2">
               Assign tasks, monitor activity, and manage workers
             </p>
           </button>
         </div>
-
       </motion.div>
 
       <AnimatePresence>
@@ -117,7 +128,6 @@ function RoleSelect({ user, onRoleConfirmed }: RoleSelectProps) {
                 >
                   Cancel
                 </button>
-
                 <button
                   onClick={confirmRole}
                   disabled={saving}
