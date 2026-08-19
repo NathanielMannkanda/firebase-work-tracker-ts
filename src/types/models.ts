@@ -1,10 +1,10 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type Role = "worker" | "manager";
-
-// Shapes below reflect documents as they come back from Firestore reads
-// (`snap.data()`); writes go through the untyped `addDoc`/`setDoc`/`updateDoc`
-// calls and aren't checked against these.
+export enum Role {
+  SuperUser = "superuser",
+  Manager = "manager",
+  Worker = "worker",
+}
 
 export interface UserDoc {
   name: string | null;

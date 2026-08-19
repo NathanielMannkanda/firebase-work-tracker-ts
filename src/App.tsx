@@ -4,7 +4,7 @@ import './App.css'
 import { useEffect, useState } from 'react';
 import { useAuthState} from 'react-firebase-hooks/auth';
 import { auth, firestore } from './firebase/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
   BrowserRouter,
   Routes,
@@ -20,13 +20,14 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import TasksPage from './pages/TasksPage';
 import SessionsPage from './pages/SessionsPage';
 import LoadingSpinner from './components/LoadingSpinner';
-import type { Role, UserDoc } from './types/models';
+import { Role, type UserDoc } from './types/models';
 
 function App() {
 
   const [user, authLoading] = useAuthState(auth);
 
-  const [role, setRole] = useState<Role | null>(null);
+  const [registeredRole, setRegisteredRole] = useState<Role | null>(null);
+  const [activeRole, setActiveRole] = useState<Role | null>(null)
   const [loadingRole, setLoadingRole] = useState(true);
   //tracks whether the user has confirmed a role for this login session
   const [roleConfirmed, setRoleConfirmed] = useState(false);
@@ -35,12 +36,12 @@ function App() {
     const fetchRole = async () => {
 
       if (!user) {
-        setRole(null);
+        setRegisteredRole(null);
+        setActiveRole(null);
         setRoleConfirmed(false);
         setLoadingRole(false);
         return;
       } try {
-        //refers to user doc
         const userRef = doc(firestore, "users", user.uid);
 
         //fetch doc
@@ -48,13 +49,17 @@ function App() {
 
         if (userSnap.exists()){
           //get role field
-          setRole((userSnap.data() as UserDoc).role);
+          const userData = userSnap.data() as UserDoc;
+          setRegisteredRole(userData.role);
+        } else {
+          setRegisteredRole(null);
         }
       } catch (error){
         console.log(error)
       }
 
       //always re-prompt for a role on login
+      setActiveRole(null)
       setRoleConfirmed(false);
       setLoadingRole(false);
     };
@@ -92,9 +97,23 @@ function App() {
   if (!roleConfirmed) {
     return (
       <RoleSelect
-        user={user}
-        onRoleConfirmed={(confirmedRole) => {
-          setRole(confirmedRole);
+        baseRole={registeredRole}
+        onRoleConfirmed={async (confirmedRole) => {
+          if (registeredRole === null){
+            const userRef = doc(
+              firestore,
+              "users",
+              user.uid
+            );
+
+            await updateDoc(userRef, {
+              role: confirmedRole
+            });
+            
+            setRegisteredRole(confirmedRole);
+          }
+
+          setActiveRole(confirmedRole);
           setRoleConfirmed(true);
         }}
       />
@@ -111,7 +130,7 @@ function App() {
           element={
             !user
             ? <SignIn />
-            : <Navigate to={`/${role}`} />
+            : <Navigate to={`/${activeRole}`} />
           }
         />
 
@@ -121,8 +140,9 @@ function App() {
           element={
             <ProtectedRoute
               user={user}
-              role={role}
-              allowedRole="worker">
+              role={activeRole}
+              allowedRole={Role.Worker}>
+
               <WorkerPage />
             </ProtectedRoute>
           }
@@ -134,8 +154,8 @@ function App() {
           element={
             <ProtectedRoute
               user={user}
-              role={role}
-              allowedRole="manager">
+              role={activeRole}
+              allowedRole={Role.Manager}>
               <ManagerPage />
             </ProtectedRoute>
           }
@@ -146,9 +166,9 @@ function App() {
           element={
             <ProtectedRoute
               user={user}
-              role={role}
+              role={activeRole}
             >
-              <TasksPage role={role} />
+              <TasksPage role={activeRole} />
             </ProtectedRoute>
           }
         />
@@ -158,7 +178,7 @@ function App() {
           element={
             <ProtectedRoute
               user={user}
-              role={role}
+              role={activeRole}
             >
               <SessionsPage />
             </ProtectedRoute>
