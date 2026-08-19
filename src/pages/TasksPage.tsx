@@ -204,7 +204,7 @@ function TasksPage({ role }: TasksPageProps) {
 
                 <div className="flex-1 min-w-0">
 
-                  <h3 className="text-xl font-semibold break-words">
+                  <h3 className="text-xl font-semibold wrap-break-word">
                     {task.title}
                   </h3>
 
